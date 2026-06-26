@@ -21,7 +21,11 @@ def init_firebase():
         FIREBASE_PRIVATE_KEY_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_CLIENT_ID,
     )
 
-    if FIREBASE_PRIVATE_KEY and FIREBASE_CLIENT_EMAIL:
+    firebase_key_json = os.environ.get("FIREBASE_KEY_JSON")
+    if firebase_key_json:
+        cred_dict = json.loads(firebase_key_json)
+        cred = credentials.Certificate(cred_dict)
+    elif FIREBASE_PRIVATE_KEY and FIREBASE_CLIENT_EMAIL:
         cred_dict = {
             "type": "service_account",
             "project_id": FIREBASE_PROJECT_ID,

@@ -10,49 +10,50 @@ on:
 jobs:
   sync-to-hf:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          lfs: true
 
-      - name: Install Hugging Face Hub
-        run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade huggingface_hub
-
-      - name: Push backend to Hugging Face Space
+      - name: Sync backend to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        shell: python
+          HF_SPACE: ${{ secrets.HF_SPACE }}
         run: |
-          from huggingface_hub import HfApi
-          import os
+          git config --global user.email "bot@variantscope.app"
+          git config --global user.name "VariantScope Sync Bot"
 
-          api = HfApi()
-          token = os.environ["HF_TOKEN"]
+          HF_USERNAME=$(echo "$HF_SPACE" | cut -d'/' -f1)
+          git clone --depth 1 "https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE" hf_space
 
-          repo_id = os.environ.get("HF_SPACE_ID", "Arko006/variantscope-backend")
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.env' \
+            --exclude='firebase-key.json' \
+            --exclude='*.log' \
+            --exclude='__pycache__/' \
+            --exclude='.cache/' \
+            --exclude='.vercel/' \
+            backend/ hf_space/
 
-          print(f"Syncing backend to HF Space: {repo_id}")
+          cat > hf_space/README.md << 'READMEEOF'
+---
+title: VariantScope Backend
+emoji: 🧬
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+license: apache-2.0
+---
+READMEEOF
 
-          api.upload_folder(
-              folder_path="backend",
-              repo_id=repo_id,
-              repo_type="space",
-              token=token,
-              ignore_patterns=[
-                  ".git/*",
-                  ".github/*",
-                  ".venv/*",
-                  "node_modules/*",
-                  "__pycache__/*",
-                  "*.log",
-                  ".env",
-                  "firebase-key.json"
-              ],
-          )
-
-          print("Upload complete! Hugging Face Space will now rebuild.")
+          cd hf_space
+          git add -A
+          if git diff-index --quiet HEAD --; then
+            echo "No changes to sync."
+          else
+            git commit -m "sync: auto-update backend from GitHub"
+            git push origin main
+          fi
