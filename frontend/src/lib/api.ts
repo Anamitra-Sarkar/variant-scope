@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7860";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://variantscope-api.onrender.com";
 
 export async function predictVariant(
   sequence: string,
