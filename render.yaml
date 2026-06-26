@@ -27,4 +27,20 @@ services:
       - key: FIREBASE_CLIENT_ID
         value: "108651452795135314036"
       - key: CORS_ORIGINS
-        value: http://localhost:3000,https://variantscope.vercel.app
+        value: http://localhost:3000,https://variantscope.vercel.app,https://variantscope-frontend.onrender.com
+
+  - type: web
+    name: variantscope-frontend
+    runtime: node
+    repo: https://github.com/Anamitra-Sarkar/variant-scope
+    branch: main
+    rootDir: frontend
+    buildCommand: npm install && next build
+    startCommand: npm start
+    healthCheckPath: /
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: https://variantscope-api.onrender.com
