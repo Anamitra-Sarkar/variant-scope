@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: variantscope-backend
+    runtime: docker
+    repo: https://github.com/Anamitra-Sarkar/variant-scope
+    branch: main
+    dockerfilePath: backend/Dockerfile
+    healthCheckPath: /api/health
+    plan: free
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: HF_MODEL_REPO
+        value: Arko007/variantscope-models
+      - key: HF_TOKEN
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        value: plant-cloud-cd461
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        value: firebase-adminsdk-fbsvc@plant-cloud-cd461.iam.gserviceaccount.com
+      - key: FIREBASE_CLIENT_ID
+        value: "108651452795135314036"
+      - key: CORS_ORIGINS
+        value: http://localhost:3000,https://variantscope.vercel.app
