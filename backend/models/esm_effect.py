@@ -8,6 +8,7 @@ class ZeroShotESMPredictor:
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
+        self._vocab_size = model.config.vocab_size
 
     def predict(self, sequences, mutation_positions, ref_aas=None, alt_aas=None):
         scores = []
@@ -35,18 +36,18 @@ class ZeroShotESMPredictor:
             logits = outputs.logits[0, token_pos, :]
             probs = F.softmax(logits, dim=-1)
 
-        ref_token = self.tokenizer.encode(ref_aa, add_special_tokens=False)
-        if not ref_token:
+        ref_token_ids = self.tokenizer.encode(ref_aa, add_special_tokens=False)
+        if not ref_token_ids:
             return 0.5
-        p_ref = max(probs[ref_token[0]].item(), 1e-10)
+        p_ref = max(probs[ref_token_ids[0]].item(), 1e-10)
 
         if alt_aa is None or alt_aa == ref_aa:
-            return round(min(max(p_ref, 0.01), 0.99), 4)
+            return round(p_ref, 4)
 
-        alt_token = self.tokenizer.encode(alt_aa, add_special_tokens=False)
-        if not alt_token:
+        alt_token_ids = self.tokenizer.encode(alt_aa, add_special_tokens=False)
+        if not alt_token_ids:
             return 0.5
-        p_alt = max(probs[alt_token[0]].item(), 1e-10)
+        p_alt = max(probs[alt_token_ids[0]].item(), 1e-10)
 
         llr = math.log(p_alt / p_ref)
         score = 1.0 / (1.0 + math.exp(llr))

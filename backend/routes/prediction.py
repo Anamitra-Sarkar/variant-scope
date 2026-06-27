@@ -69,11 +69,15 @@ async def predict_variant(
         predictor = ZeroShotESMPredictor(model, tokenizer, model_loader.device)
 
         pos = request.position or len(request.sequence) // 2
-        result = predictor.predict(
-            [request.sequence], [pos],
-            ref_aas=[request.ref_aa or request.sequence[pos]],
-            alt_aas=[request.alt_aa],
-        )
+
+        if not request.alt_aa:
+            result = predictor.predict([request.sequence], [pos])
+        else:
+            result = predictor.predict(
+                [request.sequence], [pos],
+                ref_aas=[request.ref_aa or request.sequence[pos]],
+                alt_aas=[request.alt_aa],
+            )
 
     elif request.model_type == "dnabert2":
         model, tokenizer = model_loader.load_dnabert()
@@ -97,11 +101,15 @@ async def predict_variant(
         dna_pred = DNABERT2Predictor(dna_model, dna_tokenizer, model_loader.device)
 
         pos = request.position or len(request.sequence) // 2
-        esm_result = esm_pred.predict(
-            [request.sequence], [pos],
-            ref_aas=[request.ref_aa or request.sequence[pos]],
-            alt_aas=[request.alt_aa],
-        )
+
+        if not request.alt_aa:
+            esm_result = esm_pred.predict([request.sequence], [pos])
+        else:
+            esm_result = esm_pred.predict(
+                [request.sequence], [pos],
+                ref_aas=[request.ref_aa or request.sequence[pos]],
+                alt_aas=[request.alt_aa],
+            )
         dna_result = dna_pred.predict([request.sequence])
 
         esm_score = esm_result["pathogenicity_score"][0]
@@ -115,6 +123,7 @@ async def predict_variant(
 
     elapsed = (time.time() - start) * 1000
     raw_score = result["pathogenicity_score"][0]
+    raw_score = max(min(raw_score, 0.99), 0.01)
     score = _calibrate_score(raw_score)
 
     user_id = None
