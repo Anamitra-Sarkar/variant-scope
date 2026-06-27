@@ -1,62 +1,53 @@
+import math
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 
 
-class ESMEffectHead(nn.Module):
-    def __init__(self, embedding_dim: int = 640, hidden_dim: int = 256):
-        super().__init__()
-        self.gamma = nn.Parameter(torch.tensor(0.1))
-        self.attn_proj = nn.Linear(embedding_dim, hidden_dim)
-        self.classifier = nn.Sequential(
-            nn.LayerNorm(hidden_dim),
-            nn.Linear(hidden_dim, 64),
-            nn.GELU(),
-            nn.Dropout(0.1),
-            nn.Linear(64, 2),
-        )
-
-    def forward(self, embeddings, mutation_positions):
-        batch_size, seq_len, embed_dim = embeddings.shape
-        positions = mutation_positions.unsqueeze(1).float()
-        indices = torch.arange(seq_len, device=embeddings.device).unsqueeze(0).float()
-        distances = torch.abs(indices - positions)
-        attention_weights = torch.exp(-self.gamma * distances)
-        attention_weights = attention_weights.unsqueeze(-1)
-        weighted = embeddings * attention_weights
-        pooled = weighted.sum(dim=1)
-        projected = self.attn_proj(pooled)
-        logits = self.classifier(projected)
-        return logits
-
-
-class InductiveBiasPredictor:
+class ZeroShotESMPredictor:
     def __init__(self, model, tokenizer, device):
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
-        self.head = ESMEffectHead(
-            embedding_dim=model.config.hidden_size
-        ).to(device)
-        self.head.eval()
 
-    def predict(self, sequences, mutation_positions):
+    def predict(self, sequences, mutation_positions, ref_aas=None, alt_aas=None):
+        scores = []
+        for i, seq in enumerate(sequences):
+            pos = mutation_positions[i]
+            ref = ref_aas[i] if ref_aas else seq[pos]
+            alt = alt_aas[i] if alt_aas else None
+            scores.append(self._score_mutation(seq, pos, ref, alt))
+        return {
+            "pathogenicity_score": scores,
+            "benign_score": [round(1.0 - s, 4) for s in scores],
+        }
+
+    def _score_mutation(self, sequence, position, ref_aa, alt_aa):
         inputs = self.tokenizer(
-            sequences,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=512,
+            [sequence], return_tensors="pt", padding=True, truncation=True, max_length=512
         ).to(self.device)
 
-        with torch.no_grad():
-            outputs = self.model(**inputs, output_hidden_states=True)
-            embeddings = outputs.last_hidden_state
+        token_pos = position + 1
+        masked_ids = inputs["input_ids"].clone()
+        masked_ids[0, token_pos] = self.tokenizer.mask_token_id
 
-        positions = torch.tensor(mutation_positions, device=self.device)
-        logits = self.head(embeddings, positions)
-        probs = F.softmax(logits, dim=-1)
-        return {
-            "pathogenicity_score": probs[:, 1].cpu().tolist(),
-            "benign_score": probs[:, 0].cpu().tolist(),
-        }
+        with torch.no_grad():
+            outputs = self.model(input_ids=masked_ids, attention_mask=inputs["attention_mask"])
+            logits = outputs.logits[0, token_pos, :]
+            probs = F.softmax(logits, dim=-1)
+
+        ref_token = self.tokenizer.encode(ref_aa, add_special_tokens=False)
+        if not ref_token:
+            return 0.5
+        p_ref = max(probs[ref_token[0]].item(), 1e-10)
+
+        if alt_aa is None or alt_aa == ref_aa:
+            return round(min(max(p_ref, 0.01), 0.99), 4)
+
+        alt_token = self.tokenizer.encode(alt_aa, add_special_tokens=False)
+        if not alt_token:
+            return 0.5
+        p_alt = max(probs[alt_token[0]].item(), 1e-10)
+
+        llr = math.log(p_alt / p_ref)
+        score = 1.0 / (1.0 + math.exp(llr))
+        return round(score, 4)

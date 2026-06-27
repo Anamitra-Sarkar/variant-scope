@@ -40,13 +40,13 @@ def get_sae():
     return sae_model
 
 
-def _boost_score(score: float) -> float:
+def _calibrate_score(score: float, eps: float = 1e-7) -> float:
     if score <= 0.0 or score >= 1.0:
         return score
-    score = max(1e-7, min(1 - 1e-7, score))
-    logit = math.log(score / (1 - score))
-    boosted = 1.0 / (1.0 + math.exp(-logit * 10))
-    return round(boosted, 4)
+    s = max(eps, min(1 - eps, score))
+    logit = math.log(s / (1 - s))
+    s = 1.0 / (1.0 + math.exp(-logit * 2))
+    return round(s, 4)
 
 
 @router.post("/predict", response_model=VariantResponse)
@@ -63,11 +63,15 @@ async def predict_variant(
         if model is None:
             raise HTTPException(500, "ESM-2 model not loaded")
 
-        from models.esm_effect import InductiveBiasPredictor
-        predictor = InductiveBiasPredictor(model, tokenizer, model_loader.device)
+        from models.esm_effect import ZeroShotESMPredictor
+        predictor = ZeroShotESMPredictor(model, tokenizer, model_loader.device)
 
         pos = request.position or len(request.sequence) // 2
-        result = predictor.predict([request.sequence], [pos])
+        result = predictor.predict(
+            [request.sequence], [pos],
+            ref_aas=[request.ref_aa or request.sequence[pos]],
+            alt_aas=[request.alt_aa],
+        )
 
     elif request.model_type == "dnabert2":
         model, tokenizer = model_loader.load_dnabert()
@@ -84,14 +88,18 @@ async def predict_variant(
         if esm_model is None or dna_model is None:
             raise HTTPException(500, "Models not loaded")
 
-        from models.esm_effect import InductiveBiasPredictor
+        from models.esm_effect import ZeroShotESMPredictor
         from models.dnabert_predictor import DNABERT2Predictor
 
-        esm_pred = InductiveBiasPredictor(esm_model, esm_tokenizer, model_loader.device)
+        esm_pred = ZeroShotESMPredictor(esm_model, esm_tokenizer, model_loader.device)
         dna_pred = DNABERT2Predictor(dna_model, dna_tokenizer, model_loader.device)
 
         pos = request.position or len(request.sequence) // 2
-        esm_result = esm_pred.predict([request.sequence], [pos])
+        esm_result = esm_pred.predict(
+            [request.sequence], [pos],
+            ref_aas=[request.ref_aa or request.sequence[pos]],
+            alt_aas=[request.alt_aa],
+        )
         dna_result = dna_pred.predict([request.sequence])
 
         esm_score = esm_result["pathogenicity_score"][0]
@@ -105,7 +113,7 @@ async def predict_variant(
 
     elapsed = (time.time() - start) * 1000
     raw_score = result["pathogenicity_score"][0]
-    score = _boost_score(raw_score)
+    score = _calibrate_score(raw_score)
 
     user_id = None
     if authorization:
