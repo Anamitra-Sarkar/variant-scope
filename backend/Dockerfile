@@ -28,6 +28,6 @@ USER user
 EXPOSE 7860
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-    CMD curl -f http://localhost:7860/api/health || exit 1
+    CMD curl -f http://localhost:$PORT/api/health || exit 1
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD uvicorn app:app --host 0.0.0.0 --port ${PORT:-7860}
