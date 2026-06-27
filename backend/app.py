@@ -21,8 +21,11 @@ sae_model = None
 def _warmup():
     global sae_model
     try:
+        print("Warmup: loading ESM-2...")
         model_loader.load_esm()
+        print("Warmup: loading DNABERT-2...")
         model_loader.load_dnabert()
+        print("Warmup: loading SAE...")
         sae_model = model_loader.load_sae()
         print("Models loaded and warmed up successfully")
     except Exception as e:

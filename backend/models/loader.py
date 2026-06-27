@@ -27,7 +27,7 @@ class ModelLoader:
         print(f"Loading ESM-2 model: {model_name}")
         self.esm_tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
         self.esm_model = AutoModel.from_pretrained(
-            model_name, trust_remote_code=True
+            model_name, trust_remote_code=True, torch_dtype=torch.float16
         ).to(self.device)
         self.esm_model.eval()
         return self.esm_model, self.esm_tokenizer
@@ -41,7 +41,7 @@ class ModelLoader:
         print(f"Loading DNABERT-2 model: {model_name}")
         self.dnabert_tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
         self.dnabert_model = AutoModel.from_pretrained(
-            model_name, trust_remote_code=True
+            model_name, trust_remote_code=True, torch_dtype=torch.float16
         ).to(self.device)
         self.dnabert_model.eval()
         return self.dnabert_model, self.dnabert_tokenizer

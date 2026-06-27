@@ -29,7 +29,7 @@ CORS_ORIGIN_REGEX = "|".join(
     if "*" in o
 ) or None
 
-ESM_MODEL_NAME = os.getenv("ESM_MODEL_NAME", "facebook/esm2_t30_150M_UR50D")
+ESM_MODEL_NAME = os.getenv("ESM_MODEL_NAME", "facebook/esm2_t12_35M_UR50D")
 DNABERT_MODEL_NAME = os.getenv("DNABERT_MODEL_NAME", "zhihan1996/DNABERT-2-117M")
 
 MAX_SEQUENCE_LENGTH = 1024
