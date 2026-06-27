@@ -123,7 +123,10 @@ async def predict_variant(
 
     elapsed = (time.time() - start) * 1000
     raw_score = result["pathogenicity_score"][0]
-    raw_score = max(min(raw_score, 0.99), 0.01)
+    if raw_score < 0.01:
+        raw_score = 0.01
+    if raw_score > 0.99:
+        raw_score = 0.99
     score = _calibrate_score(raw_score)
 
     user_id = None
