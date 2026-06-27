@@ -51,7 +51,7 @@ def _calibrate_score(score: float, eps: float = 1e-7) -> float:
     return round(s, 4)
 
 
-@router.post("/predict", response_model=VariantResponse)
+@router.post("/predict")
 async def predict_variant(
     request: VariantRequest,
     authorization: str = Header(None),
@@ -152,15 +152,16 @@ async def predict_variant(
             "timestamp": datetime.datetime.utcnow().isoformat(),
         })
 
-    return VariantResponse(
-        variant=request.sequence[:20] + "..." if len(request.sequence) > 20 else request.sequence,
-        model_type=request.model_type,
-        pathogenicity_score=score,
-        benign_score=round(1.0 - score, 4),
-        confidence=round(abs(score - 0.5) * 2, 4),
-        prediction="pathogenic" if score > 0.5 else "benign",
-        inference_time_ms=round(elapsed, 2),
-    )
+    return {
+        "variant": request.sequence[:20] + "..." if len(request.sequence) > 20 else request.sequence,
+        "model_type": request.model_type,
+        "pathogenicity_score": score,
+        "benign_score": round(1.0 - score, 4),
+        "confidence": round(abs(score - 0.5) * 2, 4),
+        "prediction": "pathogenic" if score > 0.5 else "benign",
+        "inference_time_ms": round(elapsed, 2),
+        "_debug_raw": raw_score,
+    }
 
 
 @router.post("/predict/batch")
