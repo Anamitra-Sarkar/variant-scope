@@ -3,11 +3,14 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://variantscope-api.on
 export async function predictVariant(
   sequence: string,
   modelType: string = "esm2",
-  position?: number
+  position?: number,
+  token?: string
 ) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${API_BASE}/api/predict`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ sequence, model_type: modelType, position }),
   });
   if (!res.ok) throw new Error(await res.text());

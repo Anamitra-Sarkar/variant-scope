@@ -51,7 +51,12 @@ export default function PredictPage() {
     setError("");
     setResult(null);
     try {
-      const res = await predictVariant(sequence.trim(), modelType);
+      let token: string | undefined;
+      if (user) {
+        const u = user as { getIdToken: () => Promise<string> };
+        token = await u.getIdToken();
+      }
+      const res = await predictVariant(sequence.trim(), modelType, undefined, token);
       setResult(res);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Prediction failed");

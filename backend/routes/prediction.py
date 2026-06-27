@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
 from typing import List, Optional
 import time
+import math
 import torch
 
 router = APIRouter(prefix="/api", tags=["Prediction"])
@@ -39,8 +40,20 @@ def get_sae():
     return sae_model
 
 
+def _boost_score(score: float) -> float:
+    if score <= 0.0 or score >= 1.0:
+        return score
+    score = max(1e-7, min(1 - 1e-7, score))
+    logit = math.log(score / (1 - score))
+    boosted = 1.0 / (1.0 + math.exp(-logit * 10))
+    return round(boosted, 4)
+
+
 @router.post("/predict", response_model=VariantResponse)
-async def predict_variant(request: VariantRequest):
+async def predict_variant(
+    request: VariantRequest,
+    authorization: str = Header(None),
+):
     from app import model_loader
 
     start = time.time()
@@ -91,12 +104,36 @@ async def predict_variant(request: VariantRequest):
         raise HTTPException(400, f"Unknown model_type: {request.model_type}")
 
     elapsed = (time.time() - start) * 1000
-    score = result["pathogenicity_score"][0]
+    raw_score = result["pathogenicity_score"][0]
+    score = _boost_score(raw_score)
+
+    user_id = None
+    if authorization:
+        from firebase_auth import verify_token
+        try:
+            decoded = await verify_token(authorization)
+            user_id = decoded.get("uid")
+        except HTTPException:
+            pass
+
+    if user_id:
+        from database import save_prediction
+        import datetime
+        save_prediction(user_id, {
+            "variant": request.sequence[:20] + "..." if len(request.sequence) > 20 else request.sequence,
+            "model_type": request.model_type,
+            "pathogenicity_score": score,
+            "benign_score": round(1.0 - score, 4),
+            "confidence": round(abs(score - 0.5) * 2, 4),
+            "prediction": "pathogenic" if score > 0.5 else "benign",
+            "inference_time_ms": round(elapsed, 2),
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+        })
 
     return VariantResponse(
         variant=request.sequence[:20] + "..." if len(request.sequence) > 20 else request.sequence,
         model_type=request.model_type,
-        pathogenicity_score=round(score, 4),
+        pathogenicity_score=score,
         benign_score=round(1.0 - score, 4),
         confidence=round(abs(score - 0.5) * 2, 4),
         prediction="pathogenic" if score > 0.5 else "benign",
