@@ -45,7 +45,7 @@ def _calibrate_score(score: float, eps: float = 1e-7) -> float:
         return score
     s = max(eps, min(1 - eps, score))
     logit = math.log(s / (1 - s))
-    s = 1.0 / (1.0 + math.exp(-logit * 2))
+    s = 1.0 / (1.0 + math.exp(-logit * 4))
     return round(s, 4)
 
 
