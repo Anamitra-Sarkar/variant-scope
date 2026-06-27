@@ -12,6 +12,7 @@ class ZeroShotESMPredictor:
 
     def predict(self, sequences, mutation_positions, ref_aas=None, alt_aas=None):
         scores = []
+        is_conservation = alt_aas is None or all(a is None for a in alt_aas)
         for i, seq in enumerate(sequences):
             pos = mutation_positions[i]
             ref = ref_aas[i] if ref_aas else seq[pos]
@@ -20,6 +21,7 @@ class ZeroShotESMPredictor:
         return {
             "pathogenicity_score": scores,
             "benign_score": [round(1.0 - s, 4) for s in scores],
+            "_conservation": is_conservation,
         }
 
     def _score_mutation(self, sequence, position, ref_aa, alt_aa):

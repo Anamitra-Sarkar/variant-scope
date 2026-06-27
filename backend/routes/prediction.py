@@ -51,7 +51,7 @@ def _calibrate_score(score: float, eps: float = 1e-7) -> float:
     return round(s, 4)
 
 
-@router.post("/predict")
+@router.post("/predict", response_model=VariantResponse)
 async def predict_variant(
     request: VariantRequest,
     authorization: str = Header(None),
@@ -127,7 +127,10 @@ async def predict_variant(
         raw_score = 0.01
     if raw_score > 0.99:
         raw_score = 0.99
-    score = _calibrate_score(raw_score)
+    if result.get("_conservation"):
+        score = raw_score
+    else:
+        score = _calibrate_score(raw_score)
 
     user_id = None
     if authorization:
@@ -160,7 +163,6 @@ async def predict_variant(
         "confidence": round(abs(score - 0.5) * 2, 4),
         "prediction": "pathogenic" if score > 0.5 else "benign",
         "inference_time_ms": round(elapsed, 2),
-        "_debug_raw": raw_score,
     }
 
 
