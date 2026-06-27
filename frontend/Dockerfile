@@ -1,7 +1,14 @@
 FROM node:20-bookworm-slim
+
 WORKDIR /app
+
 COPY package.json ./
-RUN npm install 2>&1
+RUN npm install --no-fund --no-audit
+
 COPY . .
-RUN npm run build 2>&1
-CMD ["node", "-e", "console.log('build ok')"]
+
+RUN npm run build
+
+EXPOSE 3000
+
+CMD ["npm", "start"]
