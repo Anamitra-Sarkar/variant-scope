@@ -11,4 +11,4 @@ EXPOSE 3000
 
 RUN npm run build 2>&1
 
-CMD npm start -p ${PORT:-3000}
+CMD node_modules/.bin/next start -p ${PORT:-3000}
