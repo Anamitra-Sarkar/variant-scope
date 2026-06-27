@@ -43,6 +43,8 @@ def get_sae():
 def _calibrate_score(score: float, eps: float = 1e-7) -> float:
     if score <= 0.0 or score >= 1.0:
         return score
+    if score < 0.05 or score > 0.95:
+        return round(score, 4)
     s = max(eps, min(1 - eps, score))
     logit = math.log(s / (1 - s))
     s = 1.0 / (1.0 + math.exp(-logit * 4))
