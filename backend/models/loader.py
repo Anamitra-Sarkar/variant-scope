@@ -5,7 +5,7 @@ from huggingface_hub import hf_hub_download, snapshot_download
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-from config import HF_MODEL_REPO, HF_TOKEN, MODEL_CACHE_DIR
+from config import ESM_MODEL_NAME, DNABERT_MODEL_NAME, HF_MODEL_REPO, HF_TOKEN, MODEL_CACHE_DIR
 
 
 class ModelLoader:
@@ -18,7 +18,9 @@ class ModelLoader:
         self.sae_model = None
         self.classifier = None
 
-    def load_esm(self, model_name: str = "facebook/esm2_t30_150M_UR50D"):
+    def load_esm(self, model_name: str = None):
+        if model_name is None:
+            model_name = ESM_MODEL_NAME
         if self.esm_model is not None:
             return self.esm_model, self.esm_tokenizer
 
@@ -32,7 +34,9 @@ class ModelLoader:
         self.esm_model.eval()
         return self.esm_model, self.esm_tokenizer
 
-    def load_dnabert(self, model_name: str = "zhihan1996/DNABERT-2-117M"):
+    def load_dnabert(self, model_name: str = None):
+        if model_name is None:
+            model_name = DNABERT_MODEL_NAME
         if self.dnabert_model is not None:
             return self.dnabert_model, self.dnabert_tokenizer
 
