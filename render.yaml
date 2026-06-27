@@ -31,12 +31,10 @@ services:
 
   - type: web
     name: variantscope-frontend
-    runtime: node
+    runtime: docker
     repo: https://github.com/Anamitra-Sarkar/variant-scope
     branch: main
-    rootDir: frontend
-    buildCommand: npm install && next build
-    startCommand: npm start
+    dockerfilePath: frontend/Dockerfile
     healthCheckPath: /
     plan: free
     envVars:
