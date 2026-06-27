@@ -8,11 +8,10 @@ class ZeroShotESMPredictor:
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
-        self._vocab_size = model.config.vocab_size
+        self._token_to_id = tokenizer.get_vocab()
 
     def predict(self, sequences, mutation_positions, ref_aas=None, alt_aas=None):
         scores = []
-        is_conservation = alt_aas is None or all(a is None for a in alt_aas)
         for i, seq in enumerate(sequences):
             pos = mutation_positions[i]
             ref = ref_aas[i] if ref_aas else seq[pos]
@@ -21,8 +20,14 @@ class ZeroShotESMPredictor:
         return {
             "pathogenicity_score": scores,
             "benign_score": [round(1.0 - s, 4) for s in scores],
-            "_conservation": is_conservation,
+            "_conservation": alt_aas is None or all(a is None for a in alt_aas),
         }
+
+    def _aa_token_id(self, aa):
+        ids = self.tokenizer.encode(aa, add_special_tokens=False)
+        if ids:
+            return ids[0]
+        return self._token_to_id.get(aa)
 
     def _score_mutation(self, sequence, position, ref_aa, alt_aa):
         inputs = self.tokenizer(
@@ -38,18 +43,18 @@ class ZeroShotESMPredictor:
             logits = outputs.logits[0, token_pos, :]
             probs = F.softmax(logits, dim=-1)
 
-        ref_token_ids = self.tokenizer.encode(ref_aa, add_special_tokens=False)
-        if not ref_token_ids:
+        ref_token_id = self._aa_token_id(ref_aa)
+        if ref_token_id is None:
             return 0.5
-        p_ref = max(probs[ref_token_ids[0]].item(), 1e-10)
+        p_ref = max(probs[ref_token_id].item(), 1e-10)
 
         if alt_aa is None or alt_aa == ref_aa:
             return round(p_ref, 4)
 
-        alt_token_ids = self.tokenizer.encode(alt_aa, add_special_tokens=False)
-        if not alt_token_ids:
+        alt_token_id = self._aa_token_id(alt_aa)
+        if alt_token_id is None:
             return 0.5
-        p_alt = max(probs[alt_token_ids[0]].item(), 1e-10)
+        p_alt = max(probs[alt_token_id].item(), 1e-10)
 
         llr = math.log(p_alt / p_ref)
         score = 1.0 / (1.0 + math.exp(llr))
